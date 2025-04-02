@@ -1,0 +1,220 @@
+{% extends 'layout.html' %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <h1 class="mb-4"><i class="fas fa-robot text-primary me-2"></i> Research Assistant</h1>
+                <p class="lead">
+                    Welcome to your AI-powered research companion that helps you manage papers, patents, 
+                    and streamline your research workflow.
+                </p>
+                
+                {% if current_user.is_authenticated %}
+                <div class="row mt-4">
+                    <div class="col-md-4">
+                        <div class="card stat-card mb-3 card-hover">
+                            <div class="card-body">
+                                <h5 class="card-title">Research Papers</h5>
+                                <p class="stat-number">{{ papers_count }}</p>
+                                <a href="{{ url_for('papers') }}" class="btn btn-sm btn-outline-primary">View Papers</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card stat-card mb-3 card-hover">
+                            <div class="card-body">
+                                <h5 class="card-title">Patents</h5>
+                                <p class="stat-number">{{ patents_count }}</p>
+                                <a href="{{ url_for('patents') }}" class="btn btn-sm btn-outline-primary">View Patents</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card stat-card mb-3 card-hover">
+                            <div class="card-body">
+                                <h5 class="card-title">Research Notes</h5>
+                                <p class="stat-number">{{ notes_count }}</p>
+                                <a href="{{ url_for('notes') }}" class="btn btn-sm btn-outline-primary">View Notes</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Chat Interface -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-dark">
+                <h5 class="mb-0"><i class="fas fa-comments text-primary me-2"></i> Research Assistant Chat</h5>
+            </div>
+            <div class="card-body">
+                <div id="chat-container" class="mb-3">
+                    <!-- Chat messages will be added here via JavaScript -->
+                </div>
+                
+                <form id="chat-form" class="d-flex">
+                    <input type="text" id="chat-input" class="form-control me-2" placeholder="Ask me anything about research papers, patents, or workflows..." autocomplete="off">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+                
+                <!-- Suggested questions -->
+                <div class="mt-3">
+                    <p class="text-muted mb-2 small">Try asking:</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-sm btn-outline-secondary suggestion-btn">How do I add a new research paper?</button>
+                        <button class="btn btn-sm btn-outline-secondary suggestion-btn">Find papers on AI in healthcare</button>
+                        <button class="btn btn-sm btn-outline-secondary suggestion-btn">Generate citation in IEEE format</button>
+                        <button class="btn btn-sm btn-outline-secondary suggestion-btn">How to search for patents?</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        {% if current_user.is_authenticated %}
+        <!-- Upcoming Reminders -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-dark">
+                <h5 class="mb-0"><i class="fas fa-calendar-check text-primary me-2"></i> Upcoming Reminders</h5>
+            </div>
+            <div class="card-body">
+                {% if reminders %}
+                <ul class="list-group list-group-flush">
+                    {% for reminder in reminders %}
+                    <li class="list-group-item {% if reminder.completed %}text-muted{% endif %}" data-reminder-id="{{ reminder.id }}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="reminder-text" style="{% if reminder.completed %}text-decoration: line-through;{% endif %}">
+                                    {{ reminder.title }}
+                                </span>
+                                <br>
+                                <small class="text-muted">{{ reminder.due_date.strftime('%Y-%m-%d %H:%M') }}</small>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input reminder-status" type="checkbox" 
+                                       data-reminder-id="{{ reminder.id }}" 
+                                       {% if reminder.completed %}checked{% endif %}>
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted">No upcoming reminders.</p>
+                {% endif %}
+                <button class="btn btn-sm btn-outline-primary mt-3" data-bs-toggle="modal" data-bs-target="#addReminderModal">
+                    <i class="fas fa-plus me-1"></i> Add Reminder
+                </button>
+            </div>
+        </div>
+        
+        <!-- Quick Links -->
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-dark">
+                <h5 class="mb-0"><i class="fas fa-link text-primary me-2"></i> Quick Links</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('papers') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-search me-1"></i> Search for Papers
+                    </a>
+                    <a href="{{ url_for('papers') }}#add-paper" class="btn btn-outline-primary">
+                        <i class="fas fa-file-plus me-1"></i> Add New Paper
+                    </a>
+                    <a href="{{ url_for('patents') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-certificate me-1"></i> Browse Patents
+                    </a>
+                    <a href="{{ url_for('notes') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-sticky-note me-1"></i> Research Notes
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <!-- Login/Register Card for non-authenticated users -->
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-dark">
+                <h5 class="mb-0"><i class="fas fa-user-circle text-primary me-2"></i> Get Started</h5>
+            </div>
+            <div class="card-body">
+                <p>Sign in to manage your research papers, patents, and notes.</p>
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('login') }}" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt me-1"></i> Login
+                    </a>
+                    <a href="{{ url_for('register') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-user-plus me-1"></i> Register
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Features Card -->
+        <div class="card shadow-sm border-0 mt-4">
+            <div class="card-header bg-dark">
+                <h5 class="mb-0"><i class="fas fa-star text-primary me-2"></i> Features</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item"><i class="fas fa-check text-success me-2"></i> Manage research papers</li>
+                    <li class="list-group-item"><i class="fas fa-check text-success me-2"></i> Track patents</li>
+                    <li class="list-group-item"><i class="fas fa-check text-success me-2"></i> Organize research notes</li>
+                    <li class="list-group-item"><i class="fas fa-check text-success me-2"></i> AI-powered research assistance</li>
+                    <li class="list-group-item"><i class="fas fa-check text-success me-2"></i> Literature search & citation management</li>
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if current_user.is_authenticated %}
+<!-- Add Reminder Modal -->
+<div class="modal fade" id="addReminderModal" tabindex="-1" aria-labelledby="addReminderModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addReminderModalLabel">Add Reminder</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('reminders') }}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Title</label>
+                        <input type="text" class="form-control" id="title" name="title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description (optional)</label>
+                        <textarea class="form-control" id="description" name="description" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="due_date" class="form-label">Due Date & Time</label>
+                        <input type="datetime-local" class="form-control" id="due_date" name="due_date" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Reminder</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends 'layout.html' %}
+
+{% block title %}Research Notes{% endblock %}
+
+{% block content %}
+<h1 class="mb-4"><i class="fas fa-sticky-note text-primary me-2"></i> Research Notes</h1>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-dark d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Your Notes</h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#addNoteCollapse" aria-expanded="false">
+                        <i class="fas fa-plus me-1"></i> Add Note
+                    </button>
+                    <a href="{{ url_for('export_notes') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-download me-1"></i> Export
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if notes %}
+                <div class="list-group">
+                    {% for note in notes %}
+                    <div class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between mb-2">
+                            <div>
+                                {% if note.paper %}
+                                <span class="badge bg-primary me-2">Paper</span>
+                                {% elif note.patent %}
+                                <span class="badge bg-info me-2">Patent</span>
+                                {% else %}
+                                <span class="badge bg-secondary me-2">General</span>
+                                {% endif %}
+                                
+                                {% if note.paper %}
+                                <a href="{{ url_for('papers') }}" class="text-decoration-none">{{ note.paper.title }}</a>
+                                {% elif note.patent %}
+                                <a href="{{ url_for('patents') }}" class="text-decoration-none">{{ note.patent.title }}</a>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">{{ note.date_updated.strftime('%Y-%m-%d %H:%M') }}</small>
+                        </div>
+                        <div class="note-content mb-2">{{ note.content }}</div>
+                        <div class="d-flex justify-content-end">
+                            <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete('note', {{ note.id }}, 'this note')">
+                                <i class="fas fa-trash me-1"></i> Delete
+                            </button>
+                            <form id="delete-note-{{ note.id }}" action="{{ url_for('delete_note', note_id=note.id) }}" method="POST" style="display: none;"></form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    You haven't added any notes yet. Click the "Add Note" button to get started.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <!-- Add Note Form -->
+        <div class="collapse mb-4" id="addNoteCollapse">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-dark">
+                    <h5 class="mb-0"><i class="fas fa-plus text-primary me-2"></i> Add Research Note</h5>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('add_note') }}" method="POST">
+                        <div class="mb-3">
+                            <label for="note-content" class="form-label">Note Content *</label>
+                            <textarea class="form-control" id="note-content" name="content" rows="5" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="note-paper" class="form-label">Related Paper (optional)</label>
+                            <select class="form-select" id="note-paper" name="paper_id">
+                                <option value="">None</option>
+                                {% for paper in current_user.papers %}
+                                <option value="{{ paper.id }}">{{ paper.title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="note-patent" class="form-label">Related Patent (optional)</label>
+                            <select class="form-select" id="note-patent" name="patent_id">
+                                <option value="">None</option>
+                                {% for patent in current_user.patents %}
+                                <option value="{{ patent.id }}">{{ patent.title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Note</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Note-taking Tips -->
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-dark">
+                <h5 class="mb-0"><i class="fas fa-lightbulb text-primary me-2"></i> Research Notes Tips</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Use consistent formatting for your notes
+                    </li>
+                    <li class="list-group-item">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Link notes to specific papers or patents for better organization
+                    </li>
+                    <li class="list-group-item">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Include key insights, methodology, and critique points
+                    </li>
+                    <li class="list-group-item">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Regularly review your notes to reinforce learning
+                    </li>
+                    <li class="list-group-item">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Export your notes periodically as a backup
+                    </li>
+                </ul>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Ask the Research Assistant chatbot for help with organizing your notes or generating summaries!
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

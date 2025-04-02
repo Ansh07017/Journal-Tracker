@@ -1,0 +1,309 @@
+{% extends 'layout.html' %}
+
+{% block title %}Research Papers{% endblock %}
+
+{% block content %}
+<h1 class="mb-4"><i class="fas fa-file-alt text-primary me-2"></i> Research Papers</h1>
+
+<div class="row">
+    <div class="col-md-7">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-dark d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Your Papers</h5>
+                <div>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="collapse" data-bs-target="#searchPaperCollapse" aria-expanded="false">
+                        <i class="fas fa-search me-1"></i> Search
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#addPaperCollapse" aria-expanded="false">
+                        <i class="fas fa-plus me-1"></i> Add Paper
+                    </button>
+                    <a href="{{ url_for('export_papers') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-download me-1"></i> Export
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if papers %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Authors</th>
+                                <th>Year</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for paper in papers %}
+                            <tr data-paper-id="{{ paper.id }}" {% if paper.read_status %}class="table-success"{% endif %}>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="form-check me-2">
+                                            <input class="form-check-input read-status" type="checkbox" 
+                                                   data-paper-id="{{ paper.id }}" 
+                                                   {% if paper.read_status %}checked{% endif %}>
+                                        </div>
+                                        <div>
+                                            <strong>{{ paper.title }}</strong>
+                                            {% if paper.doi %}
+                                            <br>
+                                            <small class="text-muted">DOI: {{ paper.doi }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ paper.authors }}</td>
+                                <td>{{ paper.year }}</td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#paperModal{{ paper.id }}">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete('paper', {{ paper.id }}, '{{ paper.title }}')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        <form id="delete-paper-{{ paper.id }}" action="{{ url_for('delete_paper', paper_id=paper.id) }}" method="POST" style="display: none;"></form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <!-- Paper Modal -->
+                            <div class="modal fade" id="paperModal{{ paper.id }}" tabindex="-1" aria-labelledby="paperModalLabel{{ paper.id }}" aria-hidden="true">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="paperModalLabel{{ paper.id }}">{{ paper.title }}</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="row mb-3">
+                                                <div class="col-md-3 fw-bold">Authors:</div>
+                                                <div class="col-md-9">{{ paper.authors or 'N/A' }}</div>
+                                            </div>
+                                            <div class="row mb-3">
+                                                <div class="col-md-3 fw-bold">Publication:</div>
+                                                <div class="col-md-9">{{ paper.publication or 'N/A' }}</div>
+                                            </div>
+                                            <div class="row mb-3">
+                                                <div class="col-md-3 fw-bold">Year:</div>
+                                                <div class="col-md-9">{{ paper.year or 'N/A' }}</div>
+                                            </div>
+                                            <div class="row mb-3">
+                                                <div class="col-md-3 fw-bold">DOI:</div>
+                                                <div class="col-md-9">
+                                                    {% if paper.doi %}
+                                                    <a href="https://doi.org/{{ paper.doi }}" target="_blank">{{ paper.doi }}</a>
+                                                    {% else %}
+                                                    N/A
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="row mb-3">
+                                                <div class="col-md-3 fw-bold">URL:</div>
+                                                <div class="col-md-9">
+                                                    {% if paper.url %}
+                                                    <a href="{{ paper.url }}" target="_blank">{{ paper.url }}</a>
+                                                    {% else %}
+                                                    N/A
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="row mb-3">
+                                                <div class="col-md-3 fw-bold">Keywords:</div>
+                                                <div class="col-md-9">{{ paper.keywords or 'N/A' }}</div>
+                                            </div>
+                                            <div class="row mb-3">
+                                                <div class="col-md-3 fw-bold">Date Added:</div>
+                                                <div class="col-md-9">{{ paper.date_added.strftime('%Y-%m-%d') }}</div>
+                                            </div>
+                                            
+                                            {% if paper.abstract %}
+                                            <div class="row mb-3">
+                                                <div class="col-12 fw-bold">Abstract:</div>
+                                                <div class="col-12 mt-2">
+                                                    <div class="p-3 bg-dark rounded">
+                                                        {{ paper.abstract }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                            
+                                            <!-- Notes for this paper -->
+                                            <div class="row mt-4">
+                                                <div class="col-12">
+                                                    <h6>Notes</h6>
+                                                    {% if paper.notes %}
+                                                    <div class="list-group">
+                                                        {% for note in paper.notes %}
+                                                        <div class="list-group-item">
+                                                            <div class="d-flex justify-content-between">
+                                                                <div class="note-content">{{ note.content }}</div>
+                                                                <small class="text-muted">{{ note.date_created.strftime('%Y-%m-%d') }}</small>
+                                                            </div>
+                                                        </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                    {% else %}
+                                                    <p class="text-muted">No notes for this paper.</p>
+                                                    {% endif %}
+                                                    
+                                                    <!-- Add note form -->
+                                                    <form action="{{ url_for('add_note') }}" method="POST" class="mt-3">
+                                                        <div class="mb-3">
+                                                            <label for="note-content-{{ paper.id }}" class="form-label">Add a note</label>
+                                                            <textarea class="form-control" id="note-content-{{ paper.id }}" name="content" rows="2" required></textarea>
+                                                            <input type="hidden" name="paper_id" value="{{ paper.id }}">
+                                                        </div>
+                                                        <button type="submit" class="btn btn-sm btn-primary">Save Note</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    You haven't added any research papers yet. Click the "Add Paper" button to get started.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-5">
+        <!-- Search Papers Section -->
+        <div class="collapse mb-4" id="searchPaperCollapse">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-dark">
+                    <h5 class="mb-0"><i class="fas fa-search text-primary me-2"></i> Search Papers</h5>
+                </div>
+                <div class="card-body">
+                    <form id="paper-search-form">
+                        <div class="input-group mb-3">
+                            <input type="text" id="paper-search-input" class="form-control" placeholder="Search by title, author, or keyword..." required>
+                            <button class="btn btn-primary" type="submit">Search</button>
+                        </div>
+                    </form>
+                    
+                    <div id="paper-search-results">
+                        <!-- Search results will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- DOI Lookup Section -->
+        <div class="collapse mb-4" id="searchPaperCollapse">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-dark">
+                    <h5 class="mb-0"><i class="fas fa-barcode text-primary me-2"></i> DOI Lookup</h5>
+                </div>
+                <div class="card-body">
+                    <form id="doi-search-form">
+                        <div class="input-group mb-3">
+                            <input type="text" id="doi-input" class="form-control" placeholder="Enter DOI (e.g., 10.1145/3025453.3025773)" required>
+                            <button class="btn btn-primary" type="submit">Fetch</button>
+                        </div>
+                    </form>
+                    
+                    <div id="doi-results" class="mt-3">
+                        <!-- DOI metadata results will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Citation Generator -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-dark">
+                <h5 class="mb-0"><i class="fas fa-quote-left text-primary me-2"></i> Citation Generator</h5>
+            </div>
+            <div class="card-body">
+                <form id="citation-form">
+                    <div class="mb-3">
+                        <label for="citation-doi" class="form-label">DOI</label>
+                        <input type="text" id="citation-doi" class="form-control" placeholder="e.g., 10.1145/3025453.3025773" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="citation-style" class="form-label">Citation Style</label>
+                        <select id="citation-style" class="form-select">
+                            <option value="ieee">IEEE</option>
+                            <option value="apa">APA</option>
+                            <option value="mla">MLA</option>
+                            <option value="chicago">Chicago</option>
+                            <option value="harvard">Harvard</option>
+                            <option value="bibtex">BibTeX</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Generate Citation</button>
+                </form>
+                
+                <div id="citation-results" class="mt-3">
+                    <!-- Citation results will be displayed here -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Add Paper Form -->
+        <div class="collapse" id="addPaperCollapse">
+            <div class="card shadow-sm border-0" id="add-paper-form">
+                <div class="card-header bg-dark">
+                    <h5 class="mb-0"><i class="fas fa-plus text-primary me-2"></i> Add Research Paper</h5>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('add_paper') }}" method="POST">
+                        <div class="mb-3">
+                            <label for="paper-title" class="form-label">Title *</label>
+                            <input type="text" class="form-control" id="paper-title" name="title" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="paper-authors" class="form-label">Authors</label>
+                            <input type="text" class="form-control" id="paper-authors" name="authors" placeholder="e.g., Smith, J.; Johnson, A.">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label for="paper-publication" class="form-label">Publication</label>
+                                    <input type="text" class="form-control" id="paper-publication" name="publication" placeholder="Journal or Conference name">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="paper-year" class="form-label">Year</label>
+                                    <input type="number" class="form-control" id="paper-year" name="year" min="1900" max="2099" placeholder="YYYY">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="paper-doi" class="form-label">DOI</label>
+                            <input type="text" class="form-control" id="paper-doi" name="doi" placeholder="e.g., 10.1145/3025453.3025773">
+                        </div>
+                        <div class="mb-3">
+                            <label for="paper-url" class="form-label">URL</label>
+                            <input type="url" class="form-control" id="paper-url" name="url" placeholder="https://...">
+                        </div>
+                        <div class="mb-3">
+                            <label for="paper-abstract" class="form-label">Abstract</label>
+                            <textarea class="form-control" id="paper-abstract" name="abstract" rows="4"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="paper-keywords" class="form-label">Keywords</label>
+                            <input type="text" class="form-control" id="paper-keywords" name="keywords" placeholder="Comma-separated keywords">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Paper</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

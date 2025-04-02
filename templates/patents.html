@@ -1,0 +1,323 @@
+{% extends 'layout.html' %}
+
+{% block title %}Patents{% endblock %}
+
+{% block content %}
+<h1 class="mb-4"><i class="fas fa-certificate text-primary me-2"></i> Patents</h1>
+
+<div class="row">
+    <div class="col-md-7">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-dark d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Your Patents</h5>
+                <div>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="collapse" data-bs-target="#searchPatentCollapse" aria-expanded="false">
+                        <i class="fas fa-search me-1"></i> Search
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#addPatentCollapse" aria-expanded="false">
+                        <i class="fas fa-plus me-1"></i> Add Patent
+                    </button>
+                    <a href="{{ url_for('export_patents') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-download me-1"></i> Export
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if patents %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Patent</th>
+                                <th>Inventors</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for patent in patents %}
+                            <tr>
+                                <td>
+                                    <strong>{{ patent.title }}</strong>
+                                    {% if patent.patent_number %}
+                                    <br>
+                                    <small class="text-muted">Patent #: {{ patent.patent_number }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>{{ patent.inventors }}</td>
+                                <td>
+                                    {% if patent.issue_date %}
+                                    {{ patent.issue_date.strftime('%Y-%m-%d') }}
+                                    {% elif patent.filing_date %}
+                                    Filed: {{ patent.filing_date.strftime('%Y-%m-%d') }}
+                                    {% else %}
+                                    N/A
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#patentModal{{ patent.id }}">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete('patent', {{ patent.id }}, '{{ patent.title }}')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        <form id="delete-patent-{{ patent.id }}" action="{{ url_for('delete_patent', patent_id=patent.id) }}" method="POST" style="display: none;"></form>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <!-- Patent Modal -->
+                            <div class="modal fade" id="patentModal{{ patent.id }}" tabindex="-1" aria-labelledby="patentModalLabel{{ patent.id }}" aria-hidden="true">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="patentModalLabel{{ patent.id }}">{{ patent.title }}</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="row mb-3">
+                                                <div class="col-md-3 fw-bold">Patent Number:</div>
+                                                <div class="col-md-9">{{ patent.patent_number or 'N/A' }}</div>
+                                            </div>
+                                            <div class="row mb-3">
+                                                <div class="col-md-3 fw-bold">Inventors:</div>
+                                                <div class="col-md-9">{{ patent.inventors or 'N/A' }}</div>
+                                            </div>
+                                            <div class="row mb-3">
+                                                <div class="col-md-3 fw-bold">Assignee:</div>
+                                                <div class="col-md-9">{{ patent.assignee or 'N/A' }}</div>
+                                            </div>
+                                            <div class="row mb-3">
+                                                <div class="col-md-3 fw-bold">Filing Date:</div>
+                                                <div class="col-md-9">
+                                                    {% if patent.filing_date %}
+                                                    {{ patent.filing_date.strftime('%Y-%m-%d') }}
+                                                    {% else %}
+                                                    N/A
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="row mb-3">
+                                                <div class="col-md-3 fw-bold">Issue Date:</div>
+                                                <div class="col-md-9">
+                                                    {% if patent.issue_date %}
+                                                    {{ patent.issue_date.strftime('%Y-%m-%d') }}
+                                                    {% else %}
+                                                    N/A
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="row mb-3">
+                                                <div class="col-md-3 fw-bold">URL:</div>
+                                                <div class="col-md-9">
+                                                    {% if patent.url %}
+                                                    <a href="{{ patent.url }}" target="_blank">{{ patent.url }}</a>
+                                                    {% else %}
+                                                    N/A
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="row mb-3">
+                                                <div class="col-md-3 fw-bold">Date Added:</div>
+                                                <div class="col-md-9">{{ patent.date_added.strftime('%Y-%m-%d') }}</div>
+                                            </div>
+                                            
+                                            {% if patent.abstract %}
+                                            <div class="row mb-3">
+                                                <div class="col-12 fw-bold">Abstract:</div>
+                                                <div class="col-12 mt-2">
+                                                    <div class="p-3 bg-dark rounded">
+                                                        {{ patent.abstract }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                            
+                                            {% if patent.claims %}
+                                            <div class="row mb-3">
+                                                <div class="col-12 fw-bold">Claims:</div>
+                                                <div class="col-12 mt-2">
+                                                    <div class="p-3 bg-dark rounded">
+                                                        {{ patent.claims }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                            
+                                            <!-- Notes for this patent -->
+                                            <div class="row mt-4">
+                                                <div class="col-12">
+                                                    <h6>Notes</h6>
+                                                    {% if patent.notes %}
+                                                    <div class="list-group">
+                                                        {% for note in patent.notes %}
+                                                        <div class="list-group-item">
+                                                            <div class="d-flex justify-content-between">
+                                                                <div class="note-content">{{ note.content }}</div>
+                                                                <small class="text-muted">{{ note.date_created.strftime('%Y-%m-%d') }}</small>
+                                                            </div>
+                                                        </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                    {% else %}
+                                                    <p class="text-muted">No notes for this patent.</p>
+                                                    {% endif %}
+                                                    
+                                                    <!-- Add note form -->
+                                                    <form action="{{ url_for('add_note') }}" method="POST" class="mt-3">
+                                                        <div class="mb-3">
+                                                            <label for="note-content-{{ patent.id }}" class="form-label">Add a note</label>
+                                                            <textarea class="form-control" id="note-content-{{ patent.id }}" name="content" rows="2" required></textarea>
+                                                            <input type="hidden" name="patent_id" value="{{ patent.id }}">
+                                                        </div>
+                                                        <button type="submit" class="btn btn-sm btn-primary">Save Note</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    You haven't added any patents yet. Click the "Add Patent" button to get started.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-5">
+        <!-- Search Patents Section -->
+        <div class="collapse mb-4" id="searchPatentCollapse">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-dark">
+                    <h5 class="mb-0"><i class="fas fa-search text-primary me-2"></i> Search Patents</h5>
+                </div>
+                <div class="card-body">
+                    <form id="patent-search-form">
+                        <div class="input-group mb-3">
+                            <input type="text" id="patent-search-input" class="form-control" placeholder="Search by title, inventor, or assignee..." required>
+                            <button class="btn btn-primary" type="submit">Search</button>
+                        </div>
+                    </form>
+                    
+                    <div id="patent-search-results">
+                        <!-- Search results will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Add Patent Form -->
+        <div class="collapse" id="addPatentCollapse">
+            <div class="card shadow-sm border-0" id="add-patent-form">
+                <div class="card-header bg-dark">
+                    <h5 class="mb-0"><i class="fas fa-plus text-primary me-2"></i> Add Patent</h5>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('add_patent') }}" method="POST">
+                        <div class="mb-3">
+                            <label for="patent-title" class="form-label">Title *</label>
+                            <input type="text" class="form-control" id="patent-title" name="title" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="patent-number" class="form-label">Patent Number</label>
+                            <input type="text" class="form-control" id="patent-number" name="patent_number" placeholder="e.g., US9876543B2">
+                        </div>
+                        <div class="mb-3">
+                            <label for="patent-inventors" class="form-label">Inventors</label>
+                            <input type="text" class="form-control" id="patent-inventors" name="inventors" placeholder="e.g., Smith, J.; Johnson, A.">
+                        </div>
+                        <div class="mb-3">
+                            <label for="patent-assignee" class="form-label">Assignee</label>
+                            <input type="text" class="form-control" id="patent-assignee" name="assignee" placeholder="Company or individual">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="patent-filing-date" class="form-label">Filing Date</label>
+                                    <input type="date" class="form-control" id="patent-filing-date" name="filing_date">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="patent-issue-date" class="form-label">Issue Date</label>
+                                    <input type="date" class="form-control" id="patent-issue-date" name="issue_date">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="patent-url" class="form-label">URL</label>
+                            <input type="url" class="form-control" id="patent-url" name="url" placeholder="https://...">
+                        </div>
+                        <div class="mb-3">
+                            <label for="patent-abstract" class="form-label">Abstract</label>
+                            <textarea class="form-control" id="patent-abstract" name="abstract" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="patent-claims" class="form-label">Claims</label>
+                            <textarea class="form-control" id="patent-claims" name="claims" rows="5"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Patent</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Patent Information Card -->
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-dark">
+                <h5 class="mb-0"><i class="fas fa-info-circle text-primary me-2"></i> Patent Resources</h5>
+            </div>
+            <div class="card-body">
+                <h6>Patent Databases</h6>
+                <ul class="list-group list-group-flush mb-4">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <a href="https://patents.google.com/" target="_blank" class="text-decoration-none">
+                            Google Patents
+                        </a>
+                        <i class="fas fa-external-link-alt"></i>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <a href="https://www.uspto.gov/patents/search" target="_blank" class="text-decoration-none">
+                            USPTO Patent Search
+                        </a>
+                        <i class="fas fa-external-link-alt"></i>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <a href="https://worldwide.espacenet.com/" target="_blank" class="text-decoration-none">
+                            Espacenet (European Patent Office)
+                        </a>
+                        <i class="fas fa-external-link-alt"></i>
+                    </li>
+                </ul>
+                
+                <h6>Patent Filing Resources</h6>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <a href="https://www.uspto.gov/patents/basics" target="_blank" class="text-decoration-none">
+                            USPTO Patent Basics
+                        </a>
+                        <i class="fas fa-external-link-alt"></i>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <a href="https://www.wipo.int/pct/en/" target="_blank" class="text-decoration-none">
+                            WIPO PCT System
+                        </a>
+                        <i class="fas fa-external-link-alt"></i>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
