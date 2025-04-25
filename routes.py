@@ -10,18 +10,70 @@ from app import app, db
 from models import User, ResearchPaper, Patent, Note, Reminder
 from gemini_service import get_gemini_response
 from research_service import search_papers, search_patents, get_doi_metadata, format_citation
+from chatbot_utils import (
+    summarize_paper, generate_citation as ai_generate_citation, 
+    recommend_papers, suggest_next_milestone, answer_research_question,
+    explain_add_paper, explain_add_patent, explain_add_note,
+    detect_intent, execute_intent
+)
 
 # Home route
 @app.route('/')
 def index():
     if current_user.is_authenticated:
-        papers_count = ResearchPaper.query.filter_by(user_id=current_user.id).count()
-        patents_count = Patent.query.filter_by(user_id=current_user.id).count()
+        # Count all papers and patents in the system
+        papers_count = ResearchPaper.query.count()
+        patents_count = Patent.query.count()
+        # Count only the user's notes and reminders - these remain private
         notes_count = Note.query.filter_by(user_id=current_user.id).count()
         reminders = Reminder.query.filter_by(user_id=current_user.id, completed=False).order_by(Reminder.due_date).limit(5).all()
         return render_template('index.html', papers_count=papers_count, patents_count=patents_count, 
                               notes_count=notes_count, reminders=reminders)
     return render_template('index.html')
+
+# API Test route
+@app.route('/api-test')
+def api_test():
+    import logging
+    result = {
+        'api_key_configured': bool(os.environ.get('GOOGLE_API_KEY')),
+        'api_key_length': len(os.environ.get('GOOGLE_API_KEY', '')),
+        'gemini_import': False,
+        'gemini_models': [],
+        'test_message': None,
+        'errors': []
+    }
+    
+    try:
+        import google.generativeai as genai
+        result['gemini_import'] = True
+        
+        # Configure API
+        api_key = os.environ.get('GOOGLE_API_KEY', '')
+        genai.configure(api_key=api_key)
+        
+        # List models
+        try:
+            models = genai.list_models()
+            result['gemini_models'] = [model.name for model in models]
+        except Exception as e:
+            result['errors'].append(f"Error listing models: {str(e)}")
+        
+        # Test message
+        try:
+            model = genai.GenerativeModel('models/gemini-1.5-pro')
+            chat = model.start_chat()
+            response = chat.send_message("Hello, this is a test message")
+            result['test_message'] = response.text[:100] + "..."
+        except Exception as e:
+            result['errors'].append(f"Error sending test message: {str(e)}")
+        
+    except ImportError as e:
+        result['errors'].append(f"Import error: {str(e)}")
+    except Exception as e:
+        result['errors'].append(f"General error: {str(e)}")
+    
+    return jsonify(result)
 
 # Authentication routes
 @app.route('/login', methods=['GET', 'POST'])
@@ -90,19 +142,98 @@ def logout():
 @app.route('/chat', methods=['POST'])
 @login_required
 def chat():
-    data = request.get_json()
-    user_message = data.get('message', '')
-    
-    # Get chatbot response
-    response = get_gemini_response(user_message, current_user.id)
-    
-    return jsonify({'response': response})
+    import logging
+    try:
+        logging.info("Chat endpoint accessed")
+        
+        # Get the message from the request
+        data = request.get_json()
+        if not data:
+            logging.error("No JSON data in request")
+            return jsonify({'response': "Error: Invalid request format"})
+            
+        user_message = data.get('message', '')
+        if not user_message:
+            logging.error("No message provided in request")
+            return jsonify({'response': "Error: No message provided"})
+            
+        logging.info(f"User message received: {user_message[:30]}...")
+        
+        # Check API key
+        api_key = os.environ.get("GOOGLE_API_KEY", "")
+        logging.info(f"API key configured: {bool(api_key)}")
+        if api_key:
+            logging.info(f"API key length: {len(api_key)}")
+        
+        # Handle special case for paper ID summarization
+        lower_msg = user_message.lower()
+        if ("summarize" in lower_msg or "summary" in lower_msg) and ("with id" in lower_msg or "paper id" in lower_msg):
+            try:
+                # Extract paper ID
+                paper_id = None
+                words = lower_msg.split()
+                for i, word in enumerate(words):
+                    if word == "id" and i+1 < len(words) and words[i+1].isdigit():
+                        paper_id = int(words[i+1])
+                        break
+                
+                if paper_id:
+                    paper = ResearchPaper.query.get(paper_id)
+                    if paper:  # Allow summarizing any paper, regardless of who added it
+                        if paper.abstract:
+                            result = summarize_paper(paper.abstract)
+                            return jsonify({'response': f"Summary of paper '{paper.title}':\n\n{result['summary']}"})
+                        else:
+                            return jsonify({'response': "I couldn't find an abstract for this paper to summarize."})
+            except Exception as e:
+                logging.error(f"Error processing paper ID: {str(e)}")
+        
+        # NEW: Use intent detection system
+        logging.info("Using NLP intent detection for message")
+        intent, params, confidence = detect_intent(user_message)
+        
+        logging.info(f"Detected intent: {intent} with confidence {confidence}")
+        
+        # Handle the intent if it's detected with sufficient confidence
+        if intent and confidence >= 0.6:
+            logging.info(f"Processing intent: {intent}")
+            result = execute_intent(intent, params)
+            
+            # Format the response based on the task
+            if 'task' in result:
+                if result['task'] == 'summary':
+                    return jsonify({'response': f"Here's a summary:\n\n{result['summary']}"})
+                elif result['task'] == 'citation':
+                    return jsonify({'response': f"Here's the citation:\n\n{result['citation']}"})
+                elif result['task'] == 'recommendation':
+                    return jsonify({'response': f"Here are some recommended papers on {result.get('topic', 'your topic')}:\n\n{result['recommendations']}"})
+                elif result['task'] == 'milestone':
+                    return jsonify({'response': f"Next milestone suggestion:\n\n{result['suggested_next']}"})
+                elif result['task'] == 'qa':
+                    return jsonify({'response': result['answer']})
+                elif result['task'] in ['how_to_add_paper', 'how_to_add_patent', 'how_to_add_note']:
+                    return jsonify({'response': result['response']})
+                else:
+                    # For other tasks or generic responses
+                    response_text = result.get('response', 'I understand your request.')
+                    return jsonify({'response': response_text})
+        
+        # Default: Get regular chatbot response if no intent was detected with high confidence
+        logging.info(f"No specific intent detected with high confidence, sending to Gemini API")
+        response = get_gemini_response(user_message, current_user.id)
+        logging.info("Successfully received response from Gemini API")
+        
+        return jsonify({'response': response})
+    except Exception as e:
+        logging.error(f"Error in chat endpoint: {str(e)}")
+        return jsonify({'response': f"An error occurred: {str(e)}"})
 
 # Research Papers routes
 @app.route('/papers')
 @login_required
 def papers():
-    papers = ResearchPaper.query.filter_by(user_id=current_user.id).order_by(ResearchPaper.date_added.desc()).all()
+    # Show all papers regardless of user_id
+    papers = ResearchPaper.query.order_by(ResearchPaper.date_added.desc()).all()
     return render_template('papers.html', papers=papers)
 
 @app.route('/papers/add', methods=['POST'])
@@ -154,6 +285,27 @@ def delete_paper(paper_id):
 @login_required
 def search_paper():
     query = request.args.get('query', '')
+    
+    # If query is blank, return all papers from database
+    if not query:
+        papers = ResearchPaper.query.order_by(ResearchPaper.date_added.desc()).all()
+        # Convert to JSON serializable format
+        papers_list = [
+            {
+                'title': paper.title,
+                'authors': paper.authors,
+                'publication': paper.publication,
+                'year': paper.year,
+                'doi': paper.doi,
+                'url': paper.url,
+                'abstract': paper.abstract,
+                'keywords': paper.keywords,
+                'id': paper.id
+            } for paper in papers
+        ]
+        return jsonify(papers_list)
+    
+    # Otherwise, search external API
     papers = search_papers(query)
     return jsonify(papers)
 
@@ -177,7 +329,8 @@ def generate_citation():
 @app.route('/patents')
 @login_required
 def patents():
-    patents = Patent.query.filter_by(user_id=current_user.id).order_by(Patent.date_added.desc()).all()
+    # Show all patents regardless of user_id
+    patents = Patent.query.order_by(Patent.date_added.desc()).all()
     return render_template('patents.html', patents=patents)
 
 @app.route('/patents/add', methods=['POST'])
@@ -239,6 +392,28 @@ def delete_patent(patent_id):
 @login_required
 def search_patent():
     query = request.args.get('query', '')
+    
+    # If query is blank, return all patents from database
+    if not query:
+        patents = Patent.query.order_by(Patent.date_added.desc()).all()
+        # Convert to JSON serializable format
+        patents_list = [
+            {
+                'title': patent.title,
+                'patent_number': patent.patent_number,
+                'inventors': patent.inventors,
+                'assignee': patent.assignee,
+                'filing_date': patent.filing_date.strftime('%Y-%m-%d') if patent.filing_date else '',
+                'issue_date': patent.issue_date.strftime('%Y-%m-%d') if patent.issue_date else '',
+                'url': patent.url,
+                'abstract': patent.abstract,
+                'claims': patent.claims,
+                'id': patent.id
+            } for patent in patents
+        ]
+        return jsonify(patents_list)
+    
+    # Otherwise, search external API
     patents = search_patents(query)
     return jsonify(patents)
 
@@ -431,3 +606,148 @@ def export_notes():
         as_attachment=True,
         download_name='research_notes.csv'
     )
+
+# Chatbot utility routes
+@app.route('/chatbot/summarize-paper', methods=['POST'])
+@login_required
+def api_summarize_paper():
+    """
+    API endpoint to summarize a research paper
+    Expects JSON with {'paper_text': 'text content of the paper'}
+    """
+    import logging
+    try:
+        logging.info("Paper summarization endpoint accessed")
+        
+        data = request.get_json()
+        if not data or 'paper_text' not in data:
+            return jsonify({'error': 'Missing paper text'}), 400
+            
+        paper_text = data.get('paper_text')
+        logging.info(f"Summarizing paper, length: {len(paper_text)} characters")
+        
+        # Generate summary using AI
+        result = summarize_paper(paper_text)
+        logging.info("Successfully generated paper summary")
+        
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Error in paper summarization: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/chatbot/generate-citation', methods=['POST'])
+@login_required
+def api_generate_ai_citation():
+    """
+    API endpoint to generate a citation using AI
+    Expects JSON with paper metadata
+    """
+    import logging
+    try:
+        logging.info("AI citation generation endpoint accessed")
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Missing paper data'}), 400
+            
+        title = data.get('title', '')
+        authors = data.get('authors', '')
+        journal = data.get('journal', '')
+        year = data.get('year', 0)
+        doi = data.get('doi', '')
+        
+        if not title or not authors:
+            return jsonify({'error': 'Title and authors are required'}), 400
+            
+        logging.info(f"Generating citation for: {title}")
+        
+        # Generate citation using AI
+        result = ai_generate_citation(title, authors, journal, year, doi)
+        logging.info("Successfully generated citation")
+        
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Error in citation generation: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/chatbot/recommend-papers', methods=['POST'])
+@login_required
+def api_recommend_papers():
+    """
+    API endpoint to recommend related papers on a topic
+    Expects JSON with {'topic': 'research topic'}
+    """
+    import logging
+    try:
+        logging.info("Paper recommendation endpoint accessed")
+        
+        data = request.get_json()
+        if not data or 'topic' not in data:
+            return jsonify({'error': 'Missing topic'}), 400
+            
+        topic = data.get('topic')
+        logging.info(f"Recommending papers for topic: {topic}")
+        
+        # Get paper recommendations
+        result = recommend_papers(topic)
+        logging.info("Successfully generated paper recommendations")
+        
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Error in paper recommendation: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/chatbot/next-milestone', methods=['POST'])
+@login_required
+def api_next_milestone():
+    """
+    API endpoint to suggest next research milestone
+    Expects JSON with {'current_status': 'current research progress'}
+    """
+    import logging
+    try:
+        logging.info("Next milestone suggestion endpoint accessed")
+        
+        data = request.get_json()
+        if not data or 'current_status' not in data:
+            return jsonify({'error': 'Missing current status'}), 400
+            
+        current_status = data.get('current_status')
+        logging.info(f"Getting next milestone for status: {current_status[:30]}...")
+        
+        # Get milestone suggestion
+        result = suggest_next_milestone(current_status)
+        logging.info("Successfully generated milestone suggestion")
+        
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Error in milestone suggestion: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/chatbot/answer-question', methods=['POST'])
+@login_required
+def api_answer_question():
+    """
+    API endpoint to answer research questions
+    Expects JSON with {'question': 'the question', 'context': 'optional context'}
+    """
+    import logging
+    try:
+        logging.info("Research question endpoint accessed")
+        
+        data = request.get_json()
+        if not data or 'question' not in data:
+            return jsonify({'error': 'Missing question'}), 400
+            
+        question = data.get('question')
+        context = data.get('context', '')
+        logging.info(f"Answering research question: {question[:30]}...")
+        
+        # Get answer to research question
+        result = answer_research_question(question, context)
+        logging.info("Successfully generated answer")
+        
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Error in answering question: {str(e)}")
+        return jsonify({'error': str(e)}), 500
