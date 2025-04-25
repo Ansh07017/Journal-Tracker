@@ -1,0 +1,66 @@
+def explain_add_paper() -> dict:
+    return {
+        "task": "how_to_add_paper",
+        "question": "How do I add a research paper?",
+        "response": (
+            "To add a research paper:\n\n"
+            "1. Go to the **Papers** tab.\n"
+            "2. Click the **“+ Add Paper”** button.\n"
+            "3. Fill in the required fields:\n"
+            "   - **Title**\n"
+            "   - **Authors** (e.g., Smith, J.; Johnson, A.)\n"
+            "   - **Publication** & **Year**\n"
+            "   - **DOI** (optional but useful for citations)\n"
+            "   - **URL** (if available)\n"
+            "   - **Abstract** (summary of the paper)\n"
+            "   - **Keywords** (comma-separated for searchability)\n\n"
+            "4. Click **“Save Paper”** to submit it.\n\n"
+            "Your paper will then appear in the list and be available for linking to notes."
+        )
+    }
+
+def explain_add_patent() -> dict:
+    return {
+        "task": "how_to_add_patent",
+        "question": "How do I add a patent?",
+        "response": (
+            "To add a patent:\n\n"
+            "1. Go to the **Patents** tab.\n"
+            "2. Click the **“+ Add Patent”** button.\n"
+            "3. Fill in the required fields:\n"
+            "   - **Title**\n"
+            "   - **Patent Number** (e.g., US9876543B2)\n"
+            "   - **Inventors** (e.g., Smith, J.; Johnson, A.)\n"
+            "   - **Assignee** (company or individual)\n"
+            "   - **Filing Date** & **Issue Date**\n"
+            "   - **URL** (if available)\n"
+            "   - **Abstract**\n"
+            "   - **Claims** (brief overview of what the patent covers)\n\n"
+            "4. Click **“Save Patent”** to store it.\n\n"
+            "Your patent will appear in the list and can be linked to notes."
+        )
+    }
+
+def explain_add_note() -> dict:
+    return {
+        "task": "how_to_add_note",
+        "question": "How do I add a research note?",
+        "response": (
+            "To add a research note:\n\n"
+            "1. Navigate to the **Notes** tab in the navigation bar.\n"
+            "2. Click the **“+ Add Note”** button.\n"
+            "3. Fill in the fields:\n"
+            "   - **Note Content** (required)\n"
+            "   - **Related Paper** (optional)\n"
+            "   - **Related Patent** (optional)\n\n"
+            "4. Click **“Save Note”** to submit.\n\n"
+            "Once saved, your note will appear in **Your Notes**. "
+            "You can also export or delete it anytime."
+        )
+    }
+
+# Example usage:
+if __name__ == "__main__":
+    for fn in [explain_add_paper, explain_add_patent, explain_add_note]:
+        info = fn()
+        print(f"--- {info['question']} ---\n{info['response']}\n")

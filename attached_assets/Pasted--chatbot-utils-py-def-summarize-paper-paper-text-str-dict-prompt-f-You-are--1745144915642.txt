@@ -1,0 +1,76 @@
+# chatbot_utils.py
+
+def summarize_paper(paper_text: str) -> dict:
+    prompt = f"""
+    You are an AI research assistant. Summarize the following scientific paper in under 150 words. 
+    Focus on objectives, methods, key findings, and conclusion.
+
+    Paper:
+    {paper_text}
+    """
+    response = generate_response(prompt)
+    return {
+        "task": "summary",
+        "summary": response.strip()
+    }
+
+def generate_citation(title: str, authors: str, journal: str, year: int, doi: str) -> dict:
+    prompt = f"""
+    Format the following paper information into an APA 7 citation:
+
+    Title: {title}
+    Authors: {authors}
+    Journal: {journal}
+    Year: {year}
+    DOI: {doi}
+    """
+    response = generate_response(prompt)
+    return {
+        "task": "citation",
+        "citation_format": "APA",
+        "citation": response.strip()
+    }
+
+def recommend_papers(topic: str) -> dict:
+    prompt = f"""
+    Recommend 5 recent scientific papers similar to the topic below. 
+    Include title, author(s), year, and a one-line description.
+
+    Topic: {topic}
+    """
+    response = generate_response(prompt)
+    return {
+        "task": "recommendation",
+        "topic": topic,
+        "recommendations": response.strip()
+    }
+
+def suggest_next_milestone(current_status: str) -> dict:
+    prompt = f"""
+    The researcher has completed: {current_status}
+    Suggest the next logical milestone in the research process.
+    Also provide a motivational line.
+    """
+    response = generate_response(prompt)
+    return {
+        "task": "milestone",
+        "current": current_status,
+        "suggested_next": response.strip()
+    }
+
+def answer_research_question(question: str, context: str = "") -> dict:
+    prompt = f"""
+    You are a helpful AI assistant answering a research-related question.
+    Context (optional): {context}
+
+    Question: {question}
+    Answer in 2-3 sentences.
+    """
+    response = generate_response(prompt)
+    return {
+        "task": "qa",
+        "question": question,
+        "answer": response.strip()
+    }
+
+# NOTE: You’ll need to implement generate_response() depending on the API you're using.
